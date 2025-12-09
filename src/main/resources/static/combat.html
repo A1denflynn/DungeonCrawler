@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Combat</title>
+    <style>
+        body { font-family: Arial; background:#111; color:#fff; text-align:center; }
+        .combat-box { border:2px solid #fff; padding:20px; width:300px; margin:50px auto; }
+        button { padding:10px; margin:5px; }
+    </style>
+</head>
+<body>
+
+<h1>Combat</h1>
+
+<div class="combat-box">
+    <h2 id="enemyName"></h2>
+    <p id="enemyStats"></p>
+    <hr>
+    <h3>Player</h3>
+    <p id="playerStats"></p>
+
+    <button onclick="act('basic')">Basic Attack</button>
+    <button onclick="act('skill')">Skill</button>
+</div>
+
+<script>
+let state;
+
+// ✅ LOAD STATE WITHOUT TRIGGERING MOVE OR DUNGEON RESET
+function loadCombat(){
+    fetch('/api/state')
+        .then(res => res.json())
+        .then(data=>{
+            state = data;
+            render();
+        });
+}
+
+function render(){
+    const p = state.player;
+    const e = p.currentEnemy;
+
+    // Safety redirect if combat already ended
+    if(!e){
+        window.location.href = "index.html";
+        return;
+    }
+
+    document.getElementById("enemyName").textContent = e.name;
+    document.getElementById("enemyStats").textContent =
+        `HP: ${e.hp} | ATK: ${e.atk}`;
+
+    document.getElementById("playerStats").textContent =
+        `HP: ${p.hp} | ATK: ${p.atk}`;
+}
+
+function act(type){
+    fetch(`/api/combat?action=${type}`, {method:'POST'})
+        .then(res=>res.json())
+        .then(data=>{
+            state = data;
+
+            // ✅ Enemy defeated → go back to SAME dungeon
+            if(!state.player.inCombat || !state.player.currentEnemy){
+                window.location.href = "index.html";
+                return;
+            }
+
+            render();
+        });
+}
+
+loadCombat();
+</script>
+</body>
+</html>
