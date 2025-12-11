@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Dungeon Game</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  
+</style>
+</head>
+<body>
+<h1>Dungeon Game</h1>
+
+<div id="stats"></div>
+<div id="message-log"></div>
+<div id="dungeon-container"></div>
+
+<div id="controls">
+  <button onclick="move('w')">Up (W)</button>
+  <button onclick="move('a')">Left (A)</button>
+  <button onclick="move('s')">Down (S)</button>
+  <button onclick="move('d')">Right (D)</button>
+  <button id="backpack-btn" onclick="toggleBackpack()">Open Backpack</button>
+</div>
+
+<div id="backpack-panel">
+  <h3>Backpack</h3>
+  <div id="backpack"></div>
+  <button onclick="toggleBackpack()">Close</button>
+</div>
+
+<script>
+let dungeonState = null;
+let backpackOpen = false;
+
+// ---------- MESSAGE LOG ----------
+function addMessage(text){
+  if(!text) return;
+  const log = document.getElementById('message-log');
+  const el = document.createElement('div');
+  el.className = 'log-message';
+  el.textContent = text;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+
+  // fade out and remove after 5s
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(()=> el.remove(), 1000); }, 5000);
+}
+
+// ---------- START / LOAD GAME SAFELY ----------
+function startGame(){
+  // Try load existing server state; do NOT call /start blindly (prevents regen on page load)
+  fetch('/api/state')
+    .then(res => {
+      if (!res.ok) throw new Error('no state');
+      return res.json();
+    })
+    .then(state => {
+      // If server returned a valid state with a dungeon, use it
+      if(state && state.dungeon){
+        dungeonState = state;
+        renderDungeon();
+        addMessage(`Resumed. Level ${dungeonState.level || 1}`);
+      } else {
+        // fallback - generate initial dungeon
+        fetch('/api/start')
+          .then(r => r.json())
+          .then(newState => {
+            dungeonState = newState;
+            renderDungeon();
+            addMessage(`Game started. Level ${dungeonState.level || 1}`);
+          });
+      }
+    })
+    .catch(() => {
+      // If /api/state not available or error, start new game
+      fetch('/api/start')
+        .then(r => r.json())
+        .then(newState => {
+          dungeonState = newState;
+          renderDungeon();
+          addMessage(`Game started. Level ${dungeonState.level || 1}`);
+        });
+    });
+}
+
+// ---------- MOVE ----------
+function move(dir){
+  if(backpackOpen) return; // block movement while backpack open
+
+  if(!dungeonState) return;
+
+  const prevPicked = dungeonState.player.lastPickedUpItem;
+
+  fetch(`/api/move?direction=${encodeURIComponent(dir)}`, { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      // update state from server
+      dungeonState = data;
+
+      // show any pickup/trap message that changed
+      if(dungeonState.player.lastPickedUpItem && dungeonState.player.lastPickedUpItem !== prevPicked){
+        addMessage(dungeonState.player.lastPickedUpItem);
+      }
+
+      // Combat triggered (server returns -2)
+      if(dungeonState.lastMoveResult === -2 || dungeonState.player.pendingCombat){
+        // open combat page (combat.html must use /api/state and /api/combat)
+        window.location.href = 'combat.html';
+        return;
+      }
+
+      // Exit triggered (server returns -3) -> ONLY place we regenerate the dungeon
+      if(dungeonState.lastMoveResult === -3){
+        addMessage('You found the exit! Level up!');
+        const nextLevel = (dungeonState.level || 1) + 1;
+
+        // fetch new dungeon for next level. Preserve player stats/backpack
+        fetch(`/api/start?level=${nextLevel}`)
+          .then(res => res.json())
+          .then(newState => {
+            // preserve player (hp, atk, backpack, etc.)
+            // server may have created a fresh player; override to keep continuity
+            if(newState){
+              const preservedPlayer = dungeonState.player;
+              dungeonState = newState;
+              dungeonState.player = preservedPlayer;
+              dungeonState.level = nextLevel;
+              renderDungeon();
+              addMessage(`Welcome to Level ${dungeonState.level}`);
+            }
+          })
+          .catch(err => {
+            console.error('Failed to start next level', err);
+            addMessage('Failed to generate next level.');
+          });
+
+        return;
+      }
+
+      // Regular move -> render dungeon
+      renderDungeon();
+    })
+    .catch(err => {
+      console.error('move error', err);
+    });
+}
+
+// ---------- RENDER ----------
+function renderDungeon(){
+  if(!dungeonState) return;
+  const container = document.getElementById('dungeon-container');
+  const stats = document.getElementById('stats');
+  container.innerHTML = '';
+
+  const p = dungeonState.player || {hp:0,atk:0,luck:0,x:0,y:0};
+  stats.innerHTML = `HP: ${p.hp} | ATK: ${p.atk} | LUCK: ${p.luck} | Level: ${dungeonState.level || 1}`;
+
+  dungeonState.dungeon.forEach((row, r) => {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'row';
+    row.forEach((cell, c) => {
+      const cellDiv = document.createElement('div');
+      cellDiv.className = 'cell';
+      if(p.x === c && p.y === r){
+        cellDiv.classList.add('player');
+      } else {
+        if(cell === 1) cellDiv.classList.add('enemy');
+        if(cell === 2) cellDiv.classList.add('trap');
+        if(cell === 3) cellDiv.classList.add('loot');
+        if(cell === 4) cellDiv.classList.add('exit');
+      }
+      rowDiv.appendChild(cellDiv);
+    });
+    container.appendChild(rowDiv);
+  });
+
+  if(backpackOpen) renderBackpack();
+}
+
+// ---------- BACKPACK ----------
+function toggleBackpack(){
+  backpackOpen = !backpackOpen;
+  const panel = document.getElementById('backpack-panel');
+  panel.style.display = backpackOpen ? 'block' : 'none';
+  if(backpackOpen) renderBackpack();
+  document.getElementById('backpack-btn').textContent = backpackOpen ? 'Close Backpack' : 'Open Backpack';
+}
+
+function renderBackpack(){
+  const container = document.getElementById('backpack');
+  container.innerHTML = '';
+
+  const items = (dungeonState && dungeonState.player && dungeonState.player.backpack) ? dungeonState.player.backpack : [];
+
+  if(!items || items.length === 0){
+    container.innerHTML = '<p>Backpack is empty</p>';
+    return;
+  }
+
+  items.forEach((it, idx) => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    const name = document.createElement('span');
+    name.textContent = `${it.name} x${it.quantity || 1}`;
+    const btn = document.createElement('button');
+    btn.textContent = 'Use';
+    btn.onclick = () => useItem(idx);
+    div.appendChild(name);
+    div.appendChild(btn);
+    container.appendChild(div);
+  });
+}
+
+function useItem(index){
+  fetch(`/api/useItem?index=${index}`, { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      dungeonState = data;
+      renderDungeon();
+      renderBackpack();
+      if(dungeonState.player.lastPickedUpItem) addMessage(dungeonState.player.lastPickedUpItem);
+    })
+    .catch(err => console.error('useItem error', err));
+}
+
+// ---------- KEYBOARD ----------
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if(['w','a','s','d'].includes(k)) move(k);
+});
+
+// ---------- START ----------
+startGame();
+</script>
+</body>
+</html>
