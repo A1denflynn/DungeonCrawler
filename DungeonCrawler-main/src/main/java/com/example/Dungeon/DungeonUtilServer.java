@@ -4,21 +4,18 @@ import java.util.*;
 
 public class DungeonUtilServer {
 
-    static final Random rand = new Random();
-
+    private static Random rand = new Random();
+    static int size = 0;
     // ---------------- CREATE DUNGEON ----------------
-    public static int[][] createDungeon(int level) {
-
-        int size = (int) (5 * (level * 0.1 + 1));
-        if (size < 5) size = 5;
-        if (size > 15) size = 15;
-
+    public static int[][] createDungeon(DungeonPlayer player,
+                                        int level) {
+        System.out.println(size);
+        size = (int) (5 * (level * 0.1 + 1));
+        System.out.println(size);
         int[][] dungeon = new int[size][size];
 
-        // ----- GENERATE TERRAIN -----
         for (int y = 0; y < size; y++) {
             for (int x = 0; x < size; x++) {
-
                 int roll = rand.nextInt(100);
 
                 if (roll < 60) dungeon[y][x] = 0;       // Floor
@@ -29,18 +26,25 @@ public class DungeonUtilServer {
             }
         }
 
-        // ----- PLACE EXIT -----
+        // Place player
+        int px = rand.nextInt(size);
+        int py = rand.nextInt(size);
+        player.x = px;
+        player.y = py;
+        dungeon[py][px] = 5;
+
+        // Place exit
         int ex, ey;
         do {
             ex = rand.nextInt(size);
             ey = rand.nextInt(size);
-        } while (dungeon[ey][ex] != 0); // must be floor
+        } while (dungeon[ey][ex] == 5);
 
-        dungeon[ey][ex] = 4; // Exit
+        dungeon[ey][ex] = 4;
 
         return dungeon;
-    }
 
+    }
 
     // ---------------- MOVE PLAYER ----------------
     public static int movePlayer(int[][] dungeon, DungeonPlayer player,
