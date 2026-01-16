@@ -5,13 +5,12 @@ import java.util.*;
 public class DungeonUtilServer {
 
     private static Random rand = new Random();
-    static int size = 0;
+
     // ---------------- CREATE DUNGEON ----------------
-    public static int[][] createDungeon(DungeonPlayer player,
-                                        int level) {
-        System.out.println(size);
-        size = (int) (5 * (level * 0.1 + 1));
-        System.out.println(size);
+    public static int[][] createDungeon(DungeonPlayer player, DungeonEnemy[] enemies,
+                                        ArrayList<DungeonItems> items, int level) {
+
+        int size = 5 + level;
         int[][] dungeon = new int[size][size];
 
         for (int y = 0; y < size; y++) {
@@ -43,7 +42,6 @@ public class DungeonUtilServer {
         dungeon[ey][ex] = 4;
 
         return dungeon;
-
     }
 
     // ---------------- MOVE PLAYER ----------------
@@ -106,7 +104,7 @@ public class DungeonUtilServer {
             dungeon[player.y][player.x] = 5;
 
             player.lastPickedUpItem = "You found the exit!";
-            return -3; // EXIT TRIGGER
+            return -3; // ✅ EXIT TRIGGER
         }
 
         // -------- NORMAL MOVE --------

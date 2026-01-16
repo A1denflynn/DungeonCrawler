@@ -3,7 +3,6 @@ package com.example.Dungeon;
 import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 
-
 @RestController
 @RequestMapping("/api")
 public class DungeonController {
@@ -39,15 +38,12 @@ public class DungeonController {
             items.add(new DungeonItems("ATK Potion"));
             items.add(new DungeonItems("Luck Potion"));
         }
+
+        // Create dungeon with requested level
+        dungeon = DungeonUtilServer.createDungeon(player, enemies, items, level);
+
         DungeonState state = new DungeonState(player, dungeon, level);
-        if (DungeonUtilServer.size <= 15) {
-            // Create dungeon with requested level
-            dungeon = DungeonUtilServer.createDungeon(player, level);
-
-            state = new DungeonState(player, dungeon, level);
-            state.lastMoveResult = 0; // nothing happened yet
-
-        }
+        state.lastMoveResult = 0; // nothing happened yet
         return state;
     }
 
