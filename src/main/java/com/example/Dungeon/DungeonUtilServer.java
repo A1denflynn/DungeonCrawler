@@ -1,20 +1,23 @@
 package com.example.Dungeon;
-
 import java.util.*;
 
 public class DungeonUtilServer {
 
-    private static Random rand = new Random();
+    static final Random rand = new Random();
 
     // ---------------- CREATE DUNGEON ----------------
-    public static int[][] createDungeon(DungeonPlayer player, DungeonEnemy[] enemies,
-                                        ArrayList<DungeonItems> items, int level) {
+    public static int[][] createDungeon(int level) {
 
-        int size = 5 + level;
+        int size = (int) (5 * (level * 0.1 + 1));
+        if (size < 5) size = 5;
+        if (size > 15) size = 15;
+
         int[][] dungeon = new int[size][size];
 
+        // ----- GENERATE TERRAIN -----
         for (int y = 0; y < size; y++) {
             for (int x = 0; x < size; x++) {
+
                 int roll = rand.nextInt(100);
 
                 if (roll < 60) dungeon[y][x] = 0;       // Floor
@@ -25,24 +28,18 @@ public class DungeonUtilServer {
             }
         }
 
-        // Place player
-        int px = rand.nextInt(size);
-        int py = rand.nextInt(size);
-        player.x = px;
-        player.y = py;
-        dungeon[py][px] = 5;
-
-        // Place exit
+        // ----- PLACE EXIT -----
         int ex, ey;
         do {
             ex = rand.nextInt(size);
             ey = rand.nextInt(size);
-        } while (dungeon[ey][ex] == 5);
+        } while (dungeon[ey][ex] != 0); // must be floor
 
-        dungeon[ey][ex] = 4;
+        dungeon[ey][ex] = 4; // Exit
 
         return dungeon;
     }
+
 
     // ---------------- MOVE PLAYER ----------------
     public static int movePlayer(int[][] dungeon, DungeonPlayer player,
@@ -104,7 +101,7 @@ public class DungeonUtilServer {
             dungeon[player.y][player.x] = 5;
 
             player.lastPickedUpItem = "You found the exit!";
-            return -3; // ✅ EXIT TRIGGER
+            return -3; // EXIT TRIGGER
         }
 
         // -------- NORMAL MOVE --------
