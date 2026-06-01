@@ -17,14 +17,12 @@ public class DungeonController {
     private int level = 1;
 
     // -------------------------------------------------
-    // START / RESUME GAME (NO RANDOMISATION HERE)
+    // START / RESUME GAME
     // -------------------------------------------------
     @GetMapping("/start")
     public DungeonState startGame() {
 
-        // Create player once
         if (player == null) {
-            player = new DungeonPlayer(100, 10, 5);
 
             enemies = new DungeonEnemy[] {
                     new DungeonEnemy("Goblin", 0, 0, 20, 5),
@@ -36,8 +34,11 @@ public class DungeonController {
             items.add(new DungeonItems("ATK Potion"));
             items.add(new DungeonItems("Luck Potion"));
 
-            // First level initialisation
             dungeon = DungeonUtilServer.createDungeon(level);
+
+            // FIX: correct constructor
+            player = new DungeonPlayer(0, 0);
+
             spawnPlayerRandomly();
         }
 
@@ -45,7 +46,7 @@ public class DungeonController {
     }
 
     // -------------------------------------------------
-    // NEXT LEVEL  (ONLY PLACE THAT RANDOMISES PLAYER)
+    // NEXT LEVEL
     // -------------------------------------------------
     @GetMapping("/next-level")
     public DungeonState nextLevel() {
@@ -70,7 +71,6 @@ public class DungeonController {
                 dungeon, player, enemies, items, direction
         );
 
-        // ✅ AUTO ADVANCE LEVEL
         if (result == -3) {
             level++;
 
@@ -84,10 +84,8 @@ public class DungeonController {
 
         DungeonState state = new DungeonState(player, dungeon, level);
         state.lastMoveResult = result;
-        System.out.println("Move result = " + result);
         return state;
     }
-
 
     // -------------------------------------------------
     // COMBAT
@@ -113,7 +111,7 @@ public class DungeonController {
     }
 
     // -------------------------------------------------
-    // STATE (DEBUG / POLLING SAFE)
+    // STATE
     // -------------------------------------------------
     @GetMapping("/state")
     public DungeonState getState() {
@@ -121,7 +119,7 @@ public class DungeonController {
     }
 
     // -------------------------------------------------
-    // HELPER — RANDOM SPAWN (SINGLE RESPONSIBILITY)
+    // SPAWN PLAYER
     // -------------------------------------------------
     private void spawnPlayerRandomly() {
 
@@ -130,10 +128,57 @@ public class DungeonController {
         do {
             px = rand.nextInt(dungeon[0].length);
             py = rand.nextInt(dungeon.length);
-        } while (dungeon[py][px] != 0); // floor only
+        } while (dungeon[py][px] != 0);
 
         player.x = px;
         player.y = py;
+
         dungeon[py][px] = 5;
+    }
+    @PostMapping("/unlockSkill")
+    public DungeonState unlockSkill(@RequestParam String id) {
+
+        if (player.skillPoints <= 0) {
+            return new DungeonState(player, dungeon, level);
+        }
+
+        if (player.skills.contains(id)) {
+            return new DungeonState(player, dungeon, level);
+        }
+
+        switch (id) {
+
+            case "atk1":
+                player.atk += 5;
+                break;
+
+            case "atk2":
+                player.atk += 10;
+                break;
+
+            case "hp1":
+                player.hp += 20;
+                break;
+
+            case "crit":
+                // simple crit system: luck boost
+                player.luck += 5;
+                break;
+
+            case "tank":
+                player.hp += 30;
+                break;
+
+            case "god":
+                player.atk += 20;
+                player.hp += 50;
+                player.luck += 10;
+                break;
+        }
+
+        player.skills.add(id);
+        player.skillPoints--;
+
+        return new DungeonState(player, dungeon, level);
     }
 }
