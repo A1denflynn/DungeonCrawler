@@ -193,3 +193,8 @@ h1, h2, h3 {
 .combat-box button:hover {
     background: #ffbb33;
 }
+
+.dark {
+  opacity: 0.35;
+  filter: brightness(0.5);
+}
