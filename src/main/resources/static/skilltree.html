@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -213,4 +214,221 @@ load();
 </script>
 
 </body>
+=======
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Skill Tree</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0f0f0f;
+    color: #fff;
+    text-align: center;
+}
+
+h1 {
+    color: #ffdd57;
+}
+
+#hud {
+    margin-top: 20px;
+    color: #ffdd57;
+    font-size: 18px;
+}
+
+#tree {
+    position: relative;
+    width: 900px;
+    height: 600px;
+    margin: 40px auto;
+    border: 2px solid #333;
+    background: #151515;
+    overflow: hidden;
+}
+
+.node {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: #333;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.2s;
+    border: 2px solid #555;
+    user-select: none;
+    font-size: 12px;
+    text-align: center;
+    padding: 5px;
+}
+
+.node:hover {
+    transform: scale(1.1);
+}
+
+.node.unlocked {
+    background: #ffdd57;
+    color: #000;
+    border: 2px solid #ffbb33;
+}
+
+.node.available {
+    background: #444;
+    border: 2px dashed #777;
+}
+
+.node.locked {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.line {
+    position: absolute;
+    height: 3px;
+    background: #444;
+    transform-origin: left center;
+}
+
+.line.unlocked {
+    background: #ffdd57;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Skill Tree</h1>
+<button onclick="goBack()">← Back to Game</button>
+<div id="hud">
+    Level: <span id="level">0</span> |
+    XP: <span id="xp">0</span> |
+    Skill Points: <span id="sp">0</span>
+</div>
+
+<div id="tree"></div>
+
+<script>
+
+let state = null;
+
+function goBack(){
+    window.location.href = "/";
+}
+
+const skills = [
+    { id: "atk1", name: "Attack +5", x: 100, y: 250, req: [] },
+    { id: "atk2", name: "Attack +10", x: 300, y: 150, req: ["atk1"] },
+    { id: "hp1",  name: "HP +20", x: 300, y: 350, req: ["atk1"] },
+    { id: "crit", name: "Crit Boost", x: 500, y: 150, req: ["atk2"] },
+    { id: "tank", name: "Defense Up", x: 500, y: 350, req: ["hp1"] },
+    { id: "god",  name: "FINAL FORM", x: 700, y: 250, req: ["crit","tank"] }
+];
+
+function load(){
+    fetch('/api/state')
+        .then(r => r.json())
+        .then(data => {
+            state = data;
+
+            if(!state.player.skills) state.player.skills = [];
+
+            render();
+        });
+}
+
+function hasSkill(id){
+    return state.player.skills.includes(id);
+}
+
+function canUnlock(skill){
+    return skill.req.every(r => hasSkill(r));
+}
+
+function unlock(id){
+    fetch(`/api/unlockSkill?id=${id}`, { method:'POST' })
+        .then(r => r.json())
+        .then(data => {
+            state = data;
+            render();
+        });
+}
+
+function renderHUD(){
+    document.getElementById("level").textContent = state.player.level;
+    document.getElementById("xp").textContent = state.player.xp;
+    document.getElementById("sp").textContent = state.player.skillPoints;
+}
+
+function render(){
+    renderHUD();
+
+    const tree = document.getElementById("tree");
+    tree.innerHTML = "";
+
+    // LINES
+    skills.forEach(s => {
+        s.req.forEach(rid => {
+            const from = skills.find(x => x.id === rid);
+            const to = s;
+
+            const line = document.createElement("div");
+            line.className = "line";
+
+            if(hasSkill(rid) && hasSkill(s.id)){
+                line.classList.add("unlocked");
+            }
+
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length = Math.sqrt(dx*dx + dy*dy);
+
+            line.style.width = length + "px";
+            line.style.left = from.x + "px";
+            line.style.top = from.y + "px";
+
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            line.style.transform = `rotate(${angle}deg)`;
+
+            tree.appendChild(line);
+        });
+    });
+
+    // NODES
+    skills.forEach(skill => {
+        const node = document.createElement("div");
+        node.className = "node";
+
+        node.style.left = skill.x + "px";
+        node.style.top = skill.y + "px";
+        node.textContent = skill.name;
+
+        const unlocked = hasSkill(skill.id);
+        const available = canUnlock(skill);
+
+        if(unlocked){
+            node.classList.add("unlocked");
+        }
+        else if(available && state.player.skillPoints > 0){
+            node.classList.add("available");
+            node.onclick = () => unlock(skill.id);
+        }
+        else {
+            node.classList.add("locked");
+        }
+
+        tree.appendChild(node);
+    });
+}
+
+load();
+
+</script>
+
+</body>
+>>>>>>> 9182b7c1044ee86cd9dfa10ce01891225e1fccec
 </html>
